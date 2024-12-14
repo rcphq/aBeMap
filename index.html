@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeafletJS Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- LeafletJS CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- LeafletJS JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        #map {
+            height: 100vh; /* Full-screen map */
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([19.0, -70.0], 3); // Centered around the Caribbean
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Add Pins
+        var locations = [
+            { name: "Dominican Republic", coords: [19.0, -70.0] },
+            { name: "Burgos, Spain", coords: [42.343, -3.696] },
+            { name: "Vienna, Austria", coords: [48.208, 16.373] }
+        ];
+
+        locations.forEach(location => {
+            L.marker(location.coords).addTo(map)
+              .bindPopup(`<b>${location.name}</b>`)
+              .openPopup();
+        });
+    </script>
+</body>
+</html>
