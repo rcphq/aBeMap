@@ -1,15 +1,16 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map</title>
+    <title>LeafletJS Map with Clustering</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- LeafletJS CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-    <!-- LeafletJS JavaScript -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet.markercluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
     <style>
         #map {
@@ -21,9 +22,15 @@
 <body>
     <div id="map"></div>
 
+    <!-- LeafletJS JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet.markercluster JavaScript -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
     <script>
         // Initialize the map
-        var map = L.map('map').setView([19.0, -70.0], 3); // Centered around the Caribbean
+        var map = L.map('map').setView([48.0, 10.0], 4); // Centered in Europe
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -31,18 +38,31 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Add Pins
+        // Create a MarkerClusterGroup
+        var markers = L.markerClusterGroup();
+
+        // Define locations with details
         var locations = [
-            { name: "Dominican Republic", coords: [19.0, -70.0] },
-            { name: "Burgos, Spain", coords: [42.343, -3.696] },
-            { name: "Vienna, Austria", coords: [48.208, 16.373] }
+            { name: "Dominican Republic", coords: [19.0, -70.0], details: "Known for its beaches and resorts." },
+            { name: "Burgos, Spain", coords: [42.343, -3.696], details: "Famous for its medieval history." },
+            { name: "Vienna, Austria", coords: [48.208, 16.373], details: "Renowned for its classical music." },
+            { name: "Berlin, Germany", coords: [52.520, 13.405], details: "Germany's capital and cultural center." },
+            { name: "Munich, Germany", coords: [48.135, 11.582], details: "Famous for Oktoberfest and beer halls." },
+            { name: "Hamburg, Germany", coords: [53.551, 9.993], details: "A major port city in northern Germany." }
         ];
 
+        // Add markers to the cluster group
         locations.forEach(location => {
-            L.marker(location.coords).addTo(map)
-              .bindPopup(`<b>${location.name}</b>`)
-              .openPopup();
+            var marker = L.marker(location.coords)
+                .bindPopup(`
+                    <b>${location.name}</b><br>
+                    ${location.details}
+                `);
+            markers.addLayer(marker);
         });
+
+        // Add the marker cluster group to the map
+        map.addLayer(markers);
     </script>
 </body>
 </html>
