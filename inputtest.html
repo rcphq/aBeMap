@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Nominatim Autocomplete and Save/Load</title>
+    <title>LeafletJS Map with Polylines to Burgos and Save/Load</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -106,6 +106,9 @@
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
 
+        // Coordinates of Burgos, Spain
+        const burgosLatLng = [42.343, -3.696];
+
         // Array to store location data
         var locationsData = [];
 
@@ -124,6 +127,22 @@
         function autosave() {
             localStorage.setItem('locationsData', JSON.stringify(locationsData));
             showAutosaveNotification();
+        }
+
+        // Function to generate a random color
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Function to draw a polyline from a marker to Burgos
+        function drawPolylineToBurgos(markerLatLng) {
+            const color = getRandomColor(); // Assign a random color for each polyline
+            L.polyline([markerLatLng, burgosLatLng], { color, weight: 4 }).addTo(map);
         }
 
         // Function to fetch suggestions from Nominatim API
@@ -169,7 +188,10 @@
 
             markers.addLayer(marker);
 
-            // Store marker object for future removal
+            // Draw a polyline from the marker to Burgos
+            drawPolylineToBurgos([lat, lon]);
+
+            // Store marker object for future reference
             locationsData.push({ person: personName, location: locationName, lat, lon });
             updateMarkerList();
         }
