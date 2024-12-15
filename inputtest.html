@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Polylines to Burgos and Save/Load Options</title>
+    <title>LeafletJS Map with Nominatim Autocomplete</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -22,7 +22,7 @@
             padding: 15px;
             background-color: #f9f9f9;
             border-right: 1px solid #ccc;
-            overflow-y: auto; /* Scroll if content overflows */
+            overflow-y: auto;
         }
 
         #sidebar input, #sidebar button {
@@ -44,12 +44,7 @@
         }
 
         #map {
-            flex: 1; /* Take up the remaining space */
-        }
-
-        #manualControls {
-            margin: 10px auto;
-            text-align: center;
+            flex: 1;
         }
 
         #autosaveNotification {
@@ -71,15 +66,11 @@
     <div id="sidebar">
         <h3>Map Controls</h3>
         <input type="text" id="personName" placeholder="Enter person name (e.g., 'John Doe')" required>
-        <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
+        <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" list="autocompleteOptions" />
+        <datalist id="autocompleteOptions"></datalist>
         <button onclick="addLocation()">Add Location</button>
         <h4>Added Markers</h4>
         <div id="markerList"></div>
-        <div id="manualControls">
-            <button onclick="saveLocations()">💾 Save to Local Storage</button>
-            <button onclick="loadLocations()">📂 Load from Local Storage</button>
-            <button onclick="exportLocations()">Export to CSV</button>
-        </div>
     </div>
 
     <div id="map"></div>
@@ -105,71 +96,42 @@
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
 
-        // Coordinates of Burgos
-        const burgosLatLng = [42.343, -3.696];
-
         // Array to store location data
         var locationsData = [];
 
-        // Map of marker objects to track for removal
-        var markerObjects = {};
-
-        // Autosave notification element
-        const autosaveNotification = document.getElementById('autosaveNotification');
-
-        // Function to show the autosave notification
-        function showAutosaveNotification() {
-            autosaveNotification.style.display = 'block';
-            setTimeout(() => {
-                autosaveNotification.style.display = 'none';
-            }, 2000); // Hide after 2 seconds
-        }
-
-        // Function to autosave locations to local storage
-        function autosave() {
-            localStorage.setItem('locationsData', JSON.stringify(locationsData));
-            showAutosaveNotification();
-        }
-
-        // Function to generate a random color
-        function getRandomColor() {
-            const letters = '0123456789ABCDEF';
-            let color = '#';
-            for (let i = 0; i < 6; i++) {
-                color += letters[Math.floor(Math.random() * 16)];
-            }
-            return color;
-        }
-
-        // Function to draw a polyline from a marker to Burgos
-        function drawPolylineToBurgos(markerLatLng) {
-            const color = getRandomColor(); // Assign a random color for each polyline
-            L.polyline([markerLatLng, burgosLatLng], { color, weight: 4 }).addTo(map);
-        }
-
-        // Geocoding function to fetch coordinates for a location
-        async function geocodeLocation(locationName) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}`;
-
+        // Function to fetch suggestions from Nominatim API
+        async function fetchSuggestions(query) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&addressdetails=1&limit=5`;
             try {
                 const response = await fetch(url);
-                const results = await response.json();
-
-                if (results.length > 0) {
-                    return {
-                        lat: parseFloat(results[0].lat),
-                        lon: parseFloat(results[0].lon),
-                        name: results[0].display_name
-                    };
-                } else {
-                    alert("Location not found. Please enter a valid location.");
-                    return null;
-                }
+                const data = await response.json();
+                return data.map(item => ({
+                    label: item.display_name,
+                    lat: parseFloat(item.lat),
+                    lon: parseFloat(item.lon)
+                }));
             } catch (error) {
-                console.error("Geocoding error:", error);
-                alert("Error fetching location coordinates.");
-                return null;
+                console.error("Error fetching suggestions:", error);
+                return [];
             }
+        }
+
+        // Enable autocomplete for the location input
+        function enableAutocomplete() {
+            const input = document.getElementById("friendlyName");
+            input.addEventListener("input", async function () {
+                const query = input.value;
+                if (query.length > 2) { // Start autocomplete after 3 characters
+                    const suggestions = await fetchSuggestions(query);
+                    const datalist = document.getElementById("autocompleteOptions");
+                    datalist.innerHTML = ""; // Clear existing options
+                    suggestions.forEach(suggestion => {
+                        const option = document.createElement("option");
+                        option.value = suggestion.label; // Display location name
+                        datalist.appendChild(option);
+                    });
+                }
+            });
         }
 
         // Function to add a marker to the map
@@ -181,13 +143,8 @@
             markers.addLayer(marker);
 
             // Store marker object for future removal
-            const id = `${personName}-${locationName}`; // Unique identifier
-            markerObjects[id] = marker;
-
-            // Draw a polyline from the marker to Burgos
-            drawPolylineToBurgos([lat, lon]);
-
-            return id;
+            locationsData.push({ person: personName, location: locationName, lat, lon });
+            updateMarkerList();
         }
 
         // Update the marker list
@@ -206,7 +163,6 @@
                     <strong>${index + 1}. ${loc.location}</strong><br>
                     Person: ${loc.person}<br>
                     Latitude: ${loc.lat}, Longitude: ${loc.lon}<br>
-                    <button onclick="removeMarker('${loc.id}')">Remove</button>
                 `;
                 markerList.appendChild(listItem);
             });
@@ -214,123 +170,27 @@
 
         // Function to handle user input and add location
         async function addLocation() {
-            const personName = document.getElementById('personName').value.trim();
-            const locationName = document.getElementById('friendlyName').value.trim();
+            const personName = document.getElementById("personName").value.trim();
+            const locationName = document.getElementById("friendlyName").value.trim();
 
             if (!personName || !locationName) {
                 alert("Please fill in both fields.");
                 return;
             }
 
-            const geocodedLocation = await geocodeLocation(locationName);
-            if (geocodedLocation) {
-                const id = addMarker(
-                    geocodedLocation.lat,
-                    geocodedLocation.lon,
-                    personName,
-                    geocodedLocation.name
-                );
-
-                // Store the data for future use
-                locationsData.push({
-                    id,
-                    person: personName,
-                    location: geocodedLocation.name,
-                    lat: geocodedLocation.lat,
-                    lon: geocodedLocation.lon
-                });
-
-                // Clear input fields and update marker list
-                document.getElementById('personName').value = '';
-                document.getElementById('friendlyName').value = '';
-                updateMarkerList();
-
-                // Autosave
-                autosave();
-            }
-        }
-
-        // Function to remove a marker
-        function removeMarker(id) {
-            const index = locationsData.findIndex(loc => loc.id === id);
-
-            if (index !== -1) {
-                // Remove the marker from the map
-                markers.removeLayer(markerObjects[id]);
-
-                // Remove from data and markerObjects
-                locationsData.splice(index, 1);
-                delete markerObjects[id];
-
-                // Update the marker list
-                updateMarkerList();
-
-                // Autosave
-                autosave();
-            }
-        }
-
-        // Manual save to local storage
-        function saveLocations() {
-            localStorage.setItem('locationsData', JSON.stringify(locationsData));
-            alert("Locations manually saved to local storage!");
-        }
-
-        // Manual load from local storage
-        function loadLocations() {
-            const savedData = localStorage.getItem('locationsData');
-            if (savedData) {
-                locationsData = JSON.parse(savedData);
-                markers.clearLayers();
-                locationsData.forEach(loc => {
-                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
-                    loc.id = id; // Ensure the ID is consistent after reload
-                });
-                alert("Locations manually loaded from local storage!");
-                updateMarkerList();
+            const suggestions = await fetchSuggestions(locationName);
+            if (suggestions.length > 0) {
+                const { lat, lon, label } = suggestions[0]; // Automatically pick the first suggestion
+                addMarker(lat, lon, personName, label);
+                document.getElementById("personName").value = '';
+                document.getElementById("friendlyName").value = '';
             } else {
-                alert("No saved locations found in local storage.");
+                alert("Location not found.");
             }
         }
 
-        // Export location data as CSV
-        function exportLocations() {
-            if (locationsData.length === 0) {
-                alert("No locations to export.");
-                return;
-            }
-
-            // Create CSV content
-            let csvContent = "data:text/csv;charset=utf-8,Person,Location,Latitude,Longitude\n";
-            locationsData.forEach(loc => {
-                csvContent += `${loc.person},${loc.location},${loc.lat},${loc.lon}\n`;
-            });
-
-            // Create a download link and trigger the download
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "locations.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // Auto-load locations from local storage on page load
-        function autoLoad() {
-            const savedData = localStorage.getItem('locationsData');
-            if (savedData) {
-                locationsData = JSON.parse(savedData);
-                locationsData.forEach(loc => {
-                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
-                    loc.id = id; // Ensure the ID is consistent after reload
-                });
-                updateMarkerList();
-            }
-        }
-
-        // Run autoLoad on page load
-        autoLoad();
+        // Initialize the autocomplete functionality
+        enableAutocomplete();
     </script>
 </body>
 </html>
