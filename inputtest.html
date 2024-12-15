@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Multi-Color Polylines</title>
+    <title>LeafletJS Map with Autosave and Auto-load</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -46,6 +46,19 @@
         #map {
             flex: 1; /* Take up the remaining space */
         }
+
+        #autosaveNotification {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: #4caf50;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
@@ -55,14 +68,14 @@
         <input type="text" id="personName" placeholder="Enter person name (e.g., 'John Doe')" required>
         <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
         <button onclick="addLocation()">Add Location</button>
-        <button onclick="saveLocations()">Save to Local Storage</button>
-        <button onclick="loadLocations()">Load from Local Storage</button>
-        <button onclick="exportLocations()">Export to CSV</button>
         <h4>Added Markers</h4>
         <div id="markerList"></div>
     </div>
 
     <div id="map"></div>
+
+    <!-- Autosave Notification -->
+    <div id="autosaveNotification">Autosaved!</div>
 
     <!-- LeafletJS and MarkerCluster -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -87,6 +100,23 @@
 
         // Map of marker objects to track for removal
         var markerObjects = {};
+
+        // Autosave notification element
+        const autosaveNotification = document.getElementById('autosaveNotification');
+
+        // Function to show the autosave notification
+        function showAutosaveNotification() {
+            autosaveNotification.style.display = 'block';
+            setTimeout(() => {
+                autosaveNotification.style.display = 'none';
+            }, 2000); // Hide after 2 seconds
+        }
+
+        // Function to autosave locations to local storage
+        function autosave() {
+            localStorage.setItem('locationsData', JSON.stringify(locationsData));
+            showAutosaveNotification();
+        }
 
         // Function to generate a random color
         function getRandomColor() {
@@ -170,3 +200,84 @@
         async function addLocation() {
             const personName = document.getElementById('personName').value.trim();
             const locationName = document.getElementById('friendlyName').value.trim();
+
+            if (!personName || !locationName) {
+                alert("Please fill in both fields.");
+                return;
+            }
+
+            const geocodedLocation = await geocodeLocation(locationName);
+            if (geocodedLocation) {
+                const id = addMarker(
+                    geocodedLocation.lat,
+                    geocodedLocation.lon,
+                    personName,
+                    geocodedLocation.name
+                );
+
+                // Store the data for future use
+                locationsData.push({
+                    id,
+                    person: personName,
+                    location: geocodedLocation.name,
+                    lat: geocodedLocation.lat,
+                    lon: geocodedLocation.lon
+                });
+
+                // Draw a polyline between the last marker and the new marker
+                if (locationsData.length > 1) {
+                    const lastMarker = locationsData[locationsData.length - 2];
+                    drawPolyline(
+                        [lastMarker.lat, lastMarker.lon],
+                        [geocodedLocation.lat, geocodedLocation.lon]
+                    );
+                }
+
+                // Clear input fields and update marker list
+                document.getElementById('personName').value = '';
+                document.getElementById('friendlyName').value = '';
+                updateMarkerList();
+
+                // Autosave
+                autosave();
+            }
+        }
+
+        // Function to remove a marker
+        function removeMarker(id) {
+            const index = locationsData.findIndex(loc => loc.id === id);
+
+            if (index !== -1) {
+                // Remove the marker from the map
+                markers.removeLayer(markerObjects[id]);
+
+                // Remove from data and markerObjects
+                locationsData.splice(index, 1);
+                delete markerObjects[id];
+
+                // Update the marker list
+                updateMarkerList();
+
+                // Autosave
+                autosave();
+            }
+        }
+
+        // Auto-load locations from local storage on page load
+        function autoLoad() {
+            const savedData = localStorage.getItem('locationsData');
+            if (savedData) {
+                locationsData = JSON.parse(savedData);
+                locationsData.forEach(loc => {
+                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                    loc.id = id; // Ensure the ID is consistent after reload
+                });
+                updateMarkerList();
+            }
+        }
+
+        // Run autoLoad on page load
+        autoLoad();
+    </script>
+</body>
+</html>
