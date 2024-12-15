@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Geocoding and Remove Marker Option</title>
+    <title>LeafletJS Map with Marker Connections</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -82,6 +82,9 @@
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
 
+        // Polyline to connect markers
+        var polyline = L.polyline([], { color: 'blue' }).addTo(map);
+
         // Array to store location data
         var locationsData = [];
 
@@ -124,6 +127,9 @@
             // Store marker object for future removal
             const id = `${personName}-${locationName}`; // Unique identifier
             markerObjects[id] = marker;
+
+            // Update the polyline with the new marker's coordinates
+            polyline.addLatLng([lat, lon]);
 
             return id;
         }
@@ -192,6 +198,10 @@
             if (index !== -1) {
                 // Remove the marker from the map
                 markers.removeLayer(markerObjects[id]);
+
+                // Remove from polyline
+                const coords = [locationsData[index].lat, locationsData[index].lon];
+                polyline.setLatLngs(polyline.getLatLngs().filter(latlng => !(latlng.lat === coords[0] && latlng.lng === coords[1])));
 
                 // Remove from data and markerObjects
                 locationsData.splice(index, 1);
