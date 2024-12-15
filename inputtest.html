@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Save, Load, Export, and Marker List</title>
+    <title>LeafletJS Map with Remove Marker Option</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -85,13 +85,22 @@
         // Array to store location data
         var locationsData = [];
 
+        // Map of marker objects to track for removal
+        var markerObjects = {};
+
         // Function to add a marker to the map
         function addMarker(lat, lon, personName, locationName) {
             const popupContent = `<b>${locationName}</b><br>Person: ${personName}`;
             const marker = L.marker([lat, lon])
-                .bindPopup(popupContent)
-                .addTo(markers);
-            map.setView([lat, lon], 10); // Center map on the new marker
+                .bindPopup(popupContent);
+
+            markers.addLayer(marker);
+
+            // Store marker object for future removal
+            const id = `${personName}-${locationName}`; // Unique identifier
+            markerObjects[id] = marker;
+
+            return id;
         }
 
         // Update the marker list
@@ -109,7 +118,8 @@
                 listItem.innerHTML = `
                     <strong>${index + 1}. ${loc.location}</strong><br>
                     Person: ${loc.person}<br>
-                    Latitude: ${loc.lat}, Longitude: ${loc.lon}
+                    Latitude: ${loc.lat}, Longitude: ${loc.lon}<br>
+                    <button onclick="removeMarker('${loc.id}')">Remove</button>
                 `;
                 markerList.appendChild(listItem);
             });
@@ -129,15 +139,32 @@
             const lat = 40.4168; // Replace with actual latitude
             const lon = -3.7038; // Replace with actual longitude
 
-            addMarker(lat, lon, personName, locationName);
+            const id = addMarker(lat, lon, personName, locationName);
 
             // Store the data for future use
-            locationsData.push({ person: personName, location: locationName, lat: lat, lon: lon });
+            locationsData.push({ id, person: personName, location: locationName, lat: lat, lon: lon });
 
             // Clear input fields and update marker list
             document.getElementById('personName').value = '';
             document.getElementById('friendlyName').value = '';
             updateMarkerList();
+        }
+
+        // Function to remove a marker
+        function removeMarker(id) {
+            const index = locationsData.findIndex(loc => loc.id === id);
+
+            if (index !== -1) {
+                // Remove the marker from the map
+                markers.removeLayer(markerObjects[id]);
+
+                // Remove from data and markerObjects
+                locationsData.splice(index, 1);
+                delete markerObjects[id];
+
+                // Update the marker list
+                updateMarkerList();
+            }
         }
 
         // Function to save locations to local storage
@@ -152,7 +179,8 @@
             if (savedData) {
                 locationsData = JSON.parse(savedData);
                 locationsData.forEach(loc => {
-                    addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                    loc.id = id; // Ensure the ID is consistent after reload
                 });
                 alert("Locations loaded from local storage!");
                 updateMarkerList();
@@ -185,7 +213,8 @@
         }
 
         // Add default marker in Burgos, Spain
-        addMarker(42.343, -3.696, "Default Marker", "Burgos, Spain");
+        const defaultId = addMarker(42.343, -3.696, "Default Marker", "Burgos, Spain");
+        locationsData.push({ id: defaultId, person: "Default Marker", location: "Burgos, Spain", lat: 42.343, lon: -3.696 });
         updateMarkerList();
     </script>
 </body>
