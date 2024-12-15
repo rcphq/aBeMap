@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Remove Marker Option</title>
+    <title>LeafletJS Map with Geocoding and Remove Marker Option</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -88,6 +88,31 @@
         // Map of marker objects to track for removal
         var markerObjects = {};
 
+        // Geocoding function to fetch coordinates for a location
+        async function geocodeLocation(locationName) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}`;
+
+            try {
+                const response = await fetch(url);
+                const results = await response.json();
+
+                if (results.length > 0) {
+                    return {
+                        lat: parseFloat(results[0].lat),
+                        lon: parseFloat(results[0].lon),
+                        name: results[0].display_name
+                    };
+                } else {
+                    alert("Location not found. Please enter a valid location.");
+                    return null;
+                }
+            } catch (error) {
+                console.error("Geocoding error:", error);
+                alert("Error fetching location coordinates.");
+                return null;
+            }
+        }
+
         // Function to add a marker to the map
         function addMarker(lat, lon, personName, locationName) {
             const popupContent = `<b>${locationName}</b><br>Person: ${personName}`;
@@ -126,7 +151,7 @@
         }
 
         // Function to handle user input and add location
-        function addLocation() {
+        async function addLocation() {
             const personName = document.getElementById('personName').value.trim();
             const locationName = document.getElementById('friendlyName').value.trim();
 
@@ -135,19 +160,29 @@
                 return;
             }
 
-            // Example hardcoded coordinates for simplicity (replace with geocoding if needed)
-            const lat = 40.4168; // Replace with actual latitude
-            const lon = -3.7038; // Replace with actual longitude
+            const geocodedLocation = await geocodeLocation(locationName);
+            if (geocodedLocation) {
+                const id = addMarker(
+                    geocodedLocation.lat,
+                    geocodedLocation.lon,
+                    personName,
+                    geocodedLocation.name
+                );
 
-            const id = addMarker(lat, lon, personName, locationName);
+                // Store the data for future use
+                locationsData.push({
+                    id,
+                    person: personName,
+                    location: geocodedLocation.name,
+                    lat: geocodedLocation.lat,
+                    lon: geocodedLocation.lon
+                });
 
-            // Store the data for future use
-            locationsData.push({ id, person: personName, location: locationName, lat: lat, lon: lon });
-
-            // Clear input fields and update marker list
-            document.getElementById('personName').value = '';
-            document.getElementById('friendlyName').value = '';
-            updateMarkerList();
+                // Clear input fields and update marker list
+                document.getElementById('personName').value = '';
+                document.getElementById('friendlyName').value = '';
+                updateMarkerList();
+            }
         }
 
         // Function to remove a marker
