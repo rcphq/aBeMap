@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Friendly Name Input</title>
+    <title>LeafletJS Map with Save and Autocomplete</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -10,9 +10,12 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 
+    <!-- jQuery UI CSS for autocomplete -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+
     <style>
         #map {
-            height: 80vh; /* Map takes 80% of the viewport height */
+            height: 70vh; /* Map takes 70% of the viewport height */
             margin: 0;
         }
 
@@ -26,6 +29,10 @@
             padding: 5px;
             margin: 5px;
         }
+
+        #fileInput {
+            display: inline-block;
+        }
     </style>
 </head>
 <body>
@@ -34,7 +41,10 @@
         <input type="text" id="personName" placeholder="Enter person name (e.g., 'John Doe')" required>
         <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
         <button onclick="addLocation()">Add Location</button>
+        <button onclick="saveLocations()">Save to Local Storage</button>
+        <button onclick="loadLocations()">Load from Local Storage</button>
         <button onclick="exportLocations()">Export Locations</button>
+        <input type="file" id="fileInput" accept=".csv" onchange="importLocations(event)">
     </div>
 
     <!-- Map container -->
@@ -43,6 +53,9 @@
     <!-- LeafletJS JavaScript -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+    <!-- jQuery and jQuery UI for autocomplete -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
     <script>
         // Initialize the map
@@ -60,6 +73,20 @@
 
         // Array to store location data
         var locationsData = [];
+
+        // Prefilled list of cities for autocomplete
+        var cityList = [
+            "Berlin", "Paris", "London", "New York", "Tokyo", "Beijing", "Sydney", "Moscow", "Dubai", "Los Angeles",
+            "Mumbai", "Cairo", "São Paulo", "Istanbul", "Mexico City", "Johannesburg", "Bangkok", "Rome", "Toronto",
+            "Singapore"
+        ];
+
+        // jQuery Autocomplete for location name input
+        $(function () {
+            $("#friendlyName").autocomplete({
+                source: cityList
+            });
+        });
 
         // Function to fetch coordinates from Nominatim API
         async function geocodeLocation(locationName) {
@@ -104,7 +131,7 @@
             if (location) {
                 addMarker(location.lat, location.lon, personName, location.name);
 
-                // Store the data for export
+                // Store the data for future use
                 locationsData.push({
                     person: personName,
                     location: location.name,
@@ -115,6 +142,26 @@
                 // Clear the input fields after adding the location
                 document.getElementById('personName').value = '';
                 document.getElementById('friendlyName').value = '';
+            }
+        }
+
+        // Function to save locations to local storage
+        function saveLocations() {
+            localStorage.setItem('locationsData', JSON.stringify(locationsData));
+            alert("Locations saved to local storage!");
+        }
+
+        // Function to load locations from local storage
+        function loadLocations() {
+            const savedData = localStorage.getItem('locationsData');
+            if (savedData) {
+                locationsData = JSON.parse(savedData);
+                locationsData.forEach(loc => {
+                    addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                });
+                alert("Locations loaded from local storage!");
+            } else {
+                alert("No saved locations found in local storage.");
             }
         }
 
@@ -139,6 +186,44 @@
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+        }
+
+        // Function to import locations from a CSV file
+        function importLocations(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                alert("No file selected.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const content = e.target.result;
+                const rows = content.split("\n").slice(1); // Skip header row
+
+                rows.forEach(row => {
+                    const [person, location, lat, lon] = row.split(",").map(value => value.trim());
+                    if (person && location && lat && lon) {
+                        addMarker(parseFloat(lat), parseFloat(lon), person, location);
+
+                        // Store the imported data for future exports
+                        locationsData.push({
+                            person,
+                            location,
+                            lat: parseFloat(lat),
+                            lon: parseFloat(lon)
+                        });
+                    }
+                });
+
+                alert("Locations imported successfully!");
+            };
+
+            reader.onerror = function () {
+                alert("Failed to read file. Please try again.");
+            };
+
+            reader.readAsText(file);
         }
     </script>
 </body>
