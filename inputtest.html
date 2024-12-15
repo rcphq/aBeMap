@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Marker Connections</title>
+    <title>LeafletJS Map with Multi-Color Polylines</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -82,14 +82,27 @@
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
 
-        // Polyline to connect markers
-        var polyline = L.polyline([], { color: 'blue' }).addTo(map);
-
         // Array to store location data
         var locationsData = [];
 
         // Map of marker objects to track for removal
         var markerObjects = {};
+
+        // Function to generate a random color
+        function getRandomColor() {
+            const letters = '0123456789ABCDEF';
+            let color = '#';
+            for (let i = 0; i < 6; i++) {
+                color += letters[Math.floor(Math.random() * 16)];
+            }
+            return color;
+        }
+
+        // Function to draw a polyline between two points
+        function drawPolyline(startLatLng, endLatLng) {
+            const color = getRandomColor(); // Assign a random color for each polyline
+            L.polyline([startLatLng, endLatLng], { color, weight: 4 }).addTo(map);
+        }
 
         // Geocoding function to fetch coordinates for a location
         async function geocodeLocation(locationName) {
@@ -128,9 +141,6 @@
             const id = `${personName}-${locationName}`; // Unique identifier
             markerObjects[id] = marker;
 
-            // Update the polyline with the new marker's coordinates
-            polyline.addLatLng([lat, lon]);
-
             return id;
         }
 
@@ -160,107 +170,3 @@
         async function addLocation() {
             const personName = document.getElementById('personName').value.trim();
             const locationName = document.getElementById('friendlyName').value.trim();
-
-            if (!personName || !locationName) {
-                alert("Please fill in both fields.");
-                return;
-            }
-
-            const geocodedLocation = await geocodeLocation(locationName);
-            if (geocodedLocation) {
-                const id = addMarker(
-                    geocodedLocation.lat,
-                    geocodedLocation.lon,
-                    personName,
-                    geocodedLocation.name
-                );
-
-                // Store the data for future use
-                locationsData.push({
-                    id,
-                    person: personName,
-                    location: geocodedLocation.name,
-                    lat: geocodedLocation.lat,
-                    lon: geocodedLocation.lon
-                });
-
-                // Clear input fields and update marker list
-                document.getElementById('personName').value = '';
-                document.getElementById('friendlyName').value = '';
-                updateMarkerList();
-            }
-        }
-
-        // Function to remove a marker
-        function removeMarker(id) {
-            const index = locationsData.findIndex(loc => loc.id === id);
-
-            if (index !== -1) {
-                // Remove the marker from the map
-                markers.removeLayer(markerObjects[id]);
-
-                // Remove from polyline
-                const coords = [locationsData[index].lat, locationsData[index].lon];
-                polyline.setLatLngs(polyline.getLatLngs().filter(latlng => !(latlng.lat === coords[0] && latlng.lng === coords[1])));
-
-                // Remove from data and markerObjects
-                locationsData.splice(index, 1);
-                delete markerObjects[id];
-
-                // Update the marker list
-                updateMarkerList();
-            }
-        }
-
-        // Function to save locations to local storage
-        function saveLocations() {
-            localStorage.setItem('locationsData', JSON.stringify(locationsData));
-            alert("Locations saved to local storage!");
-        }
-
-        // Function to load locations from local storage
-        function loadLocations() {
-            const savedData = localStorage.getItem('locationsData');
-            if (savedData) {
-                locationsData = JSON.parse(savedData);
-                locationsData.forEach(loc => {
-                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
-                    loc.id = id; // Ensure the ID is consistent after reload
-                });
-                alert("Locations loaded from local storage!");
-                updateMarkerList();
-            } else {
-                alert("No saved locations found in local storage.");
-            }
-        }
-
-        // Function to export location data as CSV
-        function exportLocations() {
-            if (locationsData.length === 0) {
-                alert("No locations to export.");
-                return;
-            }
-
-            // Create CSV content
-            let csvContent = "data:text/csv;charset=utf-8,Person,Location,Latitude,Longitude\n";
-            locationsData.forEach(loc => {
-                csvContent += `${loc.person},${loc.location},${loc.lat},${loc.lon}\n`;
-            });
-
-            // Create a download link and trigger the download
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "locations.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // Add default marker in Burgos, Spain
-        const defaultId = addMarker(42.343, -3.696, "Default Marker", "Burgos, Spain");
-        locationsData.push({ id: defaultId, person: "Default Marker", location: "Burgos, Spain", lat: 42.343, lon: -3.696 });
-        updateMarkerList();
-    </script>
-</body>
-</html>
