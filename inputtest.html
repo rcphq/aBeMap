@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Polylines to Burgos and Save/Load</title>
+    <title>LeafletJS Map with CSV Import and Polylines</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -80,6 +80,7 @@
             <button onclick="saveLocations()">💾 Save to Local Storage</button>
             <button onclick="loadLocations()">📂 Load from Local Storage</button>
             <button onclick="exportLocations()">Export to CSV</button>
+            <input type="file" id="importCSV" accept=".csv" style="margin-top: 10px;" onchange="importFromCSV()" />
         </div>
     </div>
 
@@ -259,6 +260,31 @@
             } else {
                 alert("No saved locations found in local storage.");
             }
+        }
+
+        // Import locations from CSV
+        function importFromCSV() {
+            const fileInput = document.getElementById("importCSV");
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Please select a CSV file to import.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const csvContent = e.target.result;
+                const rows = csvContent.split("\n").slice(1); // Skip the header row
+                rows.forEach(row => {
+                    const [person, location, lat, lon] = row.split(",").map(item => item.trim());
+                    if (person && location && lat && lon) {
+                        addMarker(parseFloat(lat), parseFloat(lon), person, location);
+                    }
+                });
+                alert("CSV file imported successfully!");
+                autosave();
+            };
+            reader.readAsText(file);
         }
 
         // Export location data as CSV
