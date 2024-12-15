@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Nominatim Autocomplete</title>
+    <title>LeafletJS Map with Nominatim Autocomplete and Save/Load</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -43,8 +43,9 @@
             background-color: #fff;
         }
 
-        #map {
-            flex: 1;
+        #manualControls {
+            margin: 10px auto;
+            text-align: center;
         }
 
         #autosaveNotification {
@@ -59,6 +60,10 @@
             display: none;
             z-index: 1000;
         }
+
+        #map {
+            flex: 1;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +76,11 @@
         <button onclick="addLocation()">Add Location</button>
         <h4>Added Markers</h4>
         <div id="markerList"></div>
+        <div id="manualControls">
+            <button onclick="saveLocations()">💾 Save to Local Storage</button>
+            <button onclick="loadLocations()">📂 Load from Local Storage</button>
+            <button onclick="exportLocations()">Export to CSV</button>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -98,6 +108,23 @@
 
         // Array to store location data
         var locationsData = [];
+
+        // Autosave notification element
+        const autosaveNotification = document.getElementById('autosaveNotification');
+
+        // Function to show the autosave notification
+        function showAutosaveNotification() {
+            autosaveNotification.style.display = 'block';
+            setTimeout(() => {
+                autosaveNotification.style.display = 'none';
+            }, 2000); // Hide after 2 seconds
+        }
+
+        // Function to autosave locations to local storage
+        function autosave() {
+            localStorage.setItem('locationsData', JSON.stringify(locationsData));
+            showAutosaveNotification();
+        }
 
         // Function to fetch suggestions from Nominatim API
         async function fetchSuggestions(query) {
@@ -184,10 +211,71 @@
                 addMarker(lat, lon, personName, label);
                 document.getElementById("personName").value = '';
                 document.getElementById("friendlyName").value = '';
+                autosave();
             } else {
                 alert("Location not found.");
             }
         }
+
+        // Manual save to local storage
+        function saveLocations() {
+            localStorage.setItem('locationsData', JSON.stringify(locationsData));
+            alert("Locations manually saved to local storage!");
+        }
+
+        // Manual load from local storage
+        function loadLocations() {
+            const savedData = localStorage.getItem('locationsData');
+            if (savedData) {
+                locationsData = JSON.parse(savedData);
+                markers.clearLayers();
+                locationsData.forEach(loc => {
+                    addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                });
+                alert("Locations manually loaded from local storage!");
+                updateMarkerList();
+            } else {
+                alert("No saved locations found in local storage.");
+            }
+        }
+
+        // Export location data as CSV
+        function exportLocations() {
+            if (locationsData.length === 0) {
+                alert("No locations to export.");
+                return;
+            }
+
+            // Create CSV content
+            let csvContent = "data:text/csv;charset=utf-8,Person,Location,Latitude,Longitude\n";
+            locationsData.forEach(loc => {
+                csvContent += `${loc.person},${loc.location},${loc.lat},${loc.lon}\n`;
+            });
+
+            // Create a download link and trigger the download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "locations.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Auto-load locations from local storage on page load
+        function autoLoad() {
+            const savedData = localStorage.getItem('locationsData');
+            if (savedData) {
+                locationsData = JSON.parse(savedData);
+                locationsData.forEach(loc => {
+                    addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                });
+                updateMarkerList();
+            }
+        }
+
+        // Run autoLoad on page load
+        autoLoad();
 
         // Initialize the autocomplete functionality
         enableAutocomplete();
