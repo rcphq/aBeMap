@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Save and Autocomplete</title>
+    <title>Interactive aBe Map</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -14,30 +14,37 @@
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
 
     <style>
-        #map {
-            height: 70vh; /* Map takes 70% of the viewport height */
+        body {
             margin: 0;
+            display: flex;
+            height: 100vh;
         }
 
-        #locationForm {
-            padding: 10px;
+        #sidebar {
+            width: 300px;
+            padding: 15px;
             background-color: #f9f9f9;
-            border-bottom: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+            overflow-y: auto; /* Scroll if content overflows */
         }
 
-        #locationForm input, #locationForm button {
+        #sidebar input, #sidebar button {
+            display: block;
+            width: 90%;
             padding: 5px;
-            margin: 5px;
+            margin: 10px auto;
+            box-sizing: border-box;
         }
 
-        #fileInput {
-            display: inline-block;
+        #map {
+            flex: 1; /* Take up the remaining space */
         }
     </style>
 </head>
 <body>
-    <!-- Form for user input -->
-    <div id="locationForm">
+    <!-- Sidebar for user input -->
+    <div id="sidebar">
+        <h3>Map Controls</h3>
         <input type="text" id="personName" placeholder="Enter person name (e.g., 'John Doe')" required>
         <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
         <button onclick="addLocation()">Add Location</button>
