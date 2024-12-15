@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>LeafletJS Map with Autosave and Auto-load</title>
+    <title>LeafletJS Map with Polylines to Burgos and Save/Load Options</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -47,6 +47,11 @@
             flex: 1; /* Take up the remaining space */
         }
 
+        #manualControls {
+            margin: 10px auto;
+            text-align: center;
+        }
+
         #autosaveNotification {
             position: fixed;
             bottom: 10px;
@@ -70,6 +75,11 @@
         <button onclick="addLocation()">Add Location</button>
         <h4>Added Markers</h4>
         <div id="markerList"></div>
+        <div id="manualControls">
+            <button onclick="saveLocations()">💾 Save to Local Storage</button>
+            <button onclick="loadLocations()">📂 Load from Local Storage</button>
+            <button onclick="exportLocations()">Export to CSV</button>
+        </div>
     </div>
 
     <div id="map"></div>
@@ -94,6 +104,9 @@
         // Create a MarkerClusterGroup
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
+
+        // Coordinates of Burgos
+        const burgosLatLng = [42.343, -3.696];
 
         // Array to store location data
         var locationsData = [];
@@ -128,10 +141,10 @@
             return color;
         }
 
-        // Function to draw a polyline between two points
-        function drawPolyline(startLatLng, endLatLng) {
+        // Function to draw a polyline from a marker to Burgos
+        function drawPolylineToBurgos(markerLatLng) {
             const color = getRandomColor(); // Assign a random color for each polyline
-            L.polyline([startLatLng, endLatLng], { color, weight: 4 }).addTo(map);
+            L.polyline([markerLatLng, burgosLatLng], { color, weight: 4 }).addTo(map);
         }
 
         // Geocoding function to fetch coordinates for a location
@@ -170,6 +183,9 @@
             // Store marker object for future removal
             const id = `${personName}-${locationName}`; // Unique identifier
             markerObjects[id] = marker;
+
+            // Draw a polyline from the marker to Burgos
+            drawPolylineToBurgos([lat, lon]);
 
             return id;
         }
@@ -224,15 +240,6 @@
                     lon: geocodedLocation.lon
                 });
 
-                // Draw a polyline between the last marker and the new marker
-                if (locationsData.length > 1) {
-                    const lastMarker = locationsData[locationsData.length - 2];
-                    drawPolyline(
-                        [lastMarker.lat, lastMarker.lon],
-                        [geocodedLocation.lat, geocodedLocation.lon]
-                    );
-                }
-
                 // Clear input fields and update marker list
                 document.getElementById('personName').value = '';
                 document.getElementById('friendlyName').value = '';
@@ -261,6 +268,52 @@
                 // Autosave
                 autosave();
             }
+        }
+
+        // Manual save to local storage
+        function saveLocations() {
+            localStorage.setItem('locationsData', JSON.stringify(locationsData));
+            alert("Locations manually saved to local storage!");
+        }
+
+        // Manual load from local storage
+        function loadLocations() {
+            const savedData = localStorage.getItem('locationsData');
+            if (savedData) {
+                locationsData = JSON.parse(savedData);
+                markers.clearLayers();
+                locationsData.forEach(loc => {
+                    const id = addMarker(loc.lat, loc.lon, loc.person, loc.location);
+                    loc.id = id; // Ensure the ID is consistent after reload
+                });
+                alert("Locations manually loaded from local storage!");
+                updateMarkerList();
+            } else {
+                alert("No saved locations found in local storage.");
+            }
+        }
+
+        // Export location data as CSV
+        function exportLocations() {
+            if (locationsData.length === 0) {
+                alert("No locations to export.");
+                return;
+            }
+
+            // Create CSV content
+            let csvContent = "data:text/csv;charset=utf-8,Person,Location,Latitude,Longitude\n";
+            locationsData.forEach(loc => {
+                csvContent += `${loc.person},${loc.location},${loc.lat},${loc.lon}\n`;
+            });
+
+            // Create a download link and trigger the download
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "locations.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         // Auto-load locations from local storage on page load
