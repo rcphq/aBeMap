@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Interactive aBe Map</title>
+    <title>LeafletJS Map with Dynamic Autocomplete and Default Marker</title>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
@@ -42,31 +42,25 @@
     </style>
 </head>
 <body>
-    <!-- Sidebar for user input -->
     <div id="sidebar">
         <h3>Map Controls</h3>
         <input type="text" id="personName" placeholder="Enter person name (e.g., 'John Doe')" required>
-        <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
+        <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Barcelona')" required>
         <button onclick="addLocation()">Add Location</button>
-        <button onclick="saveLocations()">Save to Local Storage</button>
-        <button onclick="loadLocations()">Load from Local Storage</button>
-        <button onclick="exportLocations()">Export Locations</button>
-        <input type="file" id="fileInput" accept=".csv" onchange="importLocations(event)">
     </div>
 
-    <!-- Map container -->
     <div id="map"></div>
 
-    <!-- LeafletJS JavaScript -->
+    <!-- LeafletJS and MarkerCluster -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
-    <!-- jQuery and jQuery UI for autocomplete -->
+    <!-- jQuery and jQuery UI -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.min.js"></script>
 
     <script>
         // Initialize the map
-        var map = L.map('map').setView([48.0, 10.0], 4); // Centered in Europe
+        var map = L.map('map').setView([42.343, -3.696], 6); // Centered on Burgos, Spain
 
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -78,42 +72,32 @@
         var markers = L.markerClusterGroup();
         map.addLayer(markers);
 
+        // Add default marker in Burgos, Spain
+        var defaultMarker = L.marker([42.343, -3.696])
+            .bindPopup("<b>Burgos, Spain</b><br>Default marker.")
+            .addTo(markers);
+
         // Array to store location data
         var locationsData = [];
 
-        // Prefilled list of cities for autocomplete
-        var cityList = [
-            "Berlin", "Paris", "London", "New York", "Tokyo", "Beijing", "Sydney", "Moscow", "Dubai", "Los Angeles",
-            "Mumbai", "Cairo", "São Paulo", "Istanbul", "Mexico City", "Johannesburg", "Bangkok", "Rome", "Toronto",
-            "Singapore"
-        ];
+        // Fetch city data for autocomplete
+        async function loadCityData() {
+            const response = await fetch('cities.json'); // Replace with your JSON file path
+            const cities = await response.json();
+            const cityList = cities.map(city => ({
+                label: `${city.city}, ${city.country} (Pop: ${city.population.toLocaleString()})`,
+                value: city.city
+            }));
 
-        // jQuery Autocomplete for location name input
-        $(function () {
+            // Initialize autocomplete with the fetched city data
             $("#friendlyName").autocomplete({
-                source: cityList
+                source: cityList,
+                minLength: 2 // Start suggesting after 2 characters
             });
-        });
-
-        // Function to fetch coordinates from Nominatim API
-        async function geocodeLocation(locationName) {
-            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}`;
-
-            try {
-                const response = await fetch(url);
-                const results = await response.json();
-
-                if (results.length > 0) {
-                    const { lat, lon, display_name } = results[0];
-                    return { lat: parseFloat(lat), lon: parseFloat(lon), name: display_name };
-                } else {
-                    throw new Error("Location not found");
-                }
-            } catch (error) {
-                console.error("Geocoding error:", error);
-                alert("Location not found. Please try a different name.");
-            }
         }
+
+        // Load city data on page load
+        loadCityData();
 
         // Function to add a marker to the map
         function addMarker(lat, lon, personName, locationName) {
@@ -134,16 +118,18 @@
                 return;
             }
 
-            const location = await geocodeLocation(locationName);
-            if (location) {
-                addMarker(location.lat, location.lon, personName, location.name);
+            // Use a placeholder geocoding service for simplicity (replace as needed)
+            const geocodedLocation = await geocodeLocation(locationName);
+
+            if (geocodedLocation) {
+                addMarker(geocodedLocation.lat, geocodedLocation.lon, personName, geocodedLocation.name);
 
                 // Store the data for future use
                 locationsData.push({
                     person: personName,
-                    location: location.name,
-                    lat: location.lat,
-                    lon: location.lon
+                    location: geocodedLocation.name,
+                    lat: geocodedLocation.lat,
+                    lon: geocodedLocation.lon
                 });
 
                 // Clear the input fields after adding the location
@@ -152,85 +138,15 @@
             }
         }
 
-        // Function to save locations to local storage
-        function saveLocations() {
-            localStorage.setItem('locationsData', JSON.stringify(locationsData));
-            alert("Locations saved to local storage!");
-        }
-
-        // Function to load locations from local storage
-        function loadLocations() {
-            const savedData = localStorage.getItem('locationsData');
-            if (savedData) {
-                locationsData = JSON.parse(savedData);
-                locationsData.forEach(loc => {
-                    addMarker(loc.lat, loc.lon, loc.person, loc.location);
-                });
-                alert("Locations loaded from local storage!");
-            } else {
-                alert("No saved locations found in local storage.");
-            }
-        }
-
-        // Function to export location data as CSV
-        function exportLocations() {
-            if (locationsData.length === 0) {
-                alert("No locations to export.");
-                return;
-            }
-
-            // Create CSV content
-            let csvContent = "data:text/csv;charset=utf-8,Person,Location,Latitude,Longitude\n";
-            locationsData.forEach(loc => {
-                csvContent += `${loc.person},${loc.location},${loc.lat},${loc.lon}\n`;
-            });
-
-            // Create a download link and trigger the download
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "locations.csv");
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        // Function to import locations from a CSV file
-        function importLocations(event) {
-            const file = event.target.files[0];
-            if (!file) {
-                alert("No file selected.");
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                const content = e.target.result;
-                const rows = content.split("\n").slice(1); // Skip header row
-
-                rows.forEach(row => {
-                    const [person, location, lat, lon] = row.split(",").map(value => value.trim());
-                    if (person && location && lat && lon) {
-                        addMarker(parseFloat(lat), parseFloat(lon), person, location);
-
-                        // Store the imported data for future exports
-                        locationsData.push({
-                            person,
-                            location,
-                            lat: parseFloat(lat),
-                            lon: parseFloat(lon)
-                        });
-                    }
-                });
-
-                alert("Locations imported successfully!");
+        // Dummy geocoding function (replace with an actual service)
+        async function geocodeLocation(locationName) {
+            // Example: Return mock data for a geocoded location
+            const geocodedData = {
+                name: locationName,
+                lat: 40.4168, // Example latitude
+                lon: -3.7038  // Example longitude
             };
-
-            reader.onerror = function () {
-                alert("Failed to read file. Please try again.");
-            };
-
-            reader.readAsText(file);
+            return geocodedData;
         }
     </script>
 </body>
