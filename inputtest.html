@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeafletJS Map with Friendly Name Input</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- LeafletJS CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Leaflet.markercluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <style>
+        #map {
+            height: 80vh; /* Map takes 80% of the viewport height */
+            margin: 0;
+        }
+
+        #locationForm {
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-bottom: 1px solid #ccc;
+        }
+
+        #locationForm input, #locationForm button {
+            padding: 5px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Form for user input -->
+    <div id="locationForm">
+        <input type="text" id="friendlyName" placeholder="Enter location name (e.g., 'Berlin')" required>
+        <button onclick="addLocation()">Add Location</button>
+    </div>
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <!-- LeafletJS JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Leaflet.markercluster JavaScript -->
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([48.0, 10.0], 4); // Centered in Europe
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Create a MarkerClusterGroup
+        var markers = L.markerClusterGroup();
+        map.addLayer(markers);
+
+        // Function to fetch coordinates from Nominatim API
+        async function geocodeLocation(locationName) {
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationName)}`;
+
+            try {
+                const response = await fetch(url);
+                const results = await response.json();
+
+                if (results.length > 0) {
+                    const { lat, lon, display_name } = results[0];
+                    return { lat: parseFloat(lat), lon: parseFloat(lon), name: display_name };
+                } else {
+                    throw new Error("Location not found");
+                }
+            } catch (error) {
+                console.error("Geocoding error:", error);
+                alert("Location not found. Please try a different name.");
+            }
+        }
+
+        // Function to add a marker to the map
+        function addMarker(lat, lon, name) {
+            var marker = L.marker([lat, lon])
+                .bindPopup(`<b>${name}</b>`)
+                .addTo(markers);
+            map.setView([lat, lon], 10); // Center map on the new marker
+        }
+
+        // Function to handle user input and add location
+        async function addLocation() {
+            const locationName = document.getElementById('friendlyName').value;
+
+            if (!locationName) {
+                alert("Please enter a location name.");
+                return;
+            }
+
+            const location = await geocodeLocation(locationName);
+            if (location) {
+                addMarker(location.lat, location.lon, location.name);
+
+                // Clear the input field after adding the location
+                document.getElementById('friendlyName').value = '';
+            }
+        }
+    </script>
+</body>
+</html>
